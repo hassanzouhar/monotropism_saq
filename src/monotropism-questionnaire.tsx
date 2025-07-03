@@ -1,126 +1,42 @@
-import React, { useState, useEffect } from 'react';
-import { ChevronRight, ChevronLeft, Info, BookOpen, BarChart3, User, AlertCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { ChevronRight, BookOpen, BarChart3, User } from 'lucide-react';
+import { calculateScore, calculateFactorScores } from './utils/calculations';
+import { Introduction, Background, Questionnaire, Results } from './components';
+import { ResponseValue, Responses, Demographics } from './types';
+import { mqItems, questionSections, factorStructure } from './data';
 
 const MonotropismQuestionnaire = () => {
   const [currentStep, setCurrentStep] = useState(0);
-  const [responses, setResponses] = useState({});
-  const [demographics, setDemographics] = useState({
+  const [responses, setResponses] = useState<Responses>({});
+  const [demographics, setDemographics] = useState<Demographics>({
     autistic: null,
     adhd: null,
     age: '',
     education: ''
   });
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  
-  // All 47 MQ items with their scoring direction
-  const mqItems = [
-    { id: 1, text: "After a period of instability, I need a quiet and predictable environment.", reverse: false },
-    { id: 2, text: "I need a quiet and predictable environment for me to switch from one task to another easily.", reverse: false },
-    { id: 3, text: "I often struggle to concentrate in busy and/or unpredictable environments.", reverse: false },
-    { id: 4, text: "I find sudden unexpected disruptions to my attention startling.", reverse: false },
-    { id: 5, text: "It's distressing to be unexpectedly pulled away from something I'm engaged in.", reverse: false },
-    { id: 6, text: "I rarely find simultaneously holding eye contact and making a verbal conversation with another person uncomfortable.", reverse: true },
-    { id: 7, text: "I often notice details that others do not.", reverse: false },
-    { id: 8, text: "Involvement in an activity of interest often reduces my anxiety level.", reverse: false },
-    { id: 9, text: "I find social interactions more comfortable if communicating about a topic of interest to me.", reverse: false },
-    { id: 10, text: "I am often totally focused on activities I am passionate about, to the point I am unaware of other events.", reverse: false },
-    { id: 11, text: "I can get quite good at something even if I'm not especially interested in it.", reverse: true },
-    { id: 12, text: "I often lose sense of time when engaging in activities I am passionate about.", reverse: false },
-    { id: 13, text: "I sometimes avoid talking because I cannot reliably predict how others will react, especially strangers.", reverse: false },
-    { id: 14, text: "I tend to do activities because I find them interesting, instead of due to societal expectations.", reverse: false },
-    { id: 15, text: "I rarely find social situations chaotic.", reverse: true },
-    { id: 16, text: "I don't mind if someone interrupts me when I'm in the middle of an activity.", reverse: true },
-    { id: 17, text: "When I'm working on something, I'm open to helpful suggestions.", reverse: true },
-    { id: 18, text: "I often find it difficult to switch topics after engaging in an activity for a long time.", reverse: false },
-    { id: 19, text: "I often engage in activities I am passionate about to escape from anxiety.", reverse: false },
-    { id: 20, text: "Routines provide an important source of stability and safety.", reverse: false },
-    { id: 21, text: "I manage uncertainty by creating routines.", reverse: false },
-    { id: 22, text: "I often experience anxiety over matters I have little certainty over.", reverse: false },
-    { id: 23, text: "I find it difficult to engage in a task of no interest to me even if it is important.", reverse: false },
-    { id: 24, text: "I often find engaging in stimming (e.g., fidgeting, rocking) to be relaxing.", reverse: false },
-    { id: 25, text: "I am usually passionate about a few topics at any one time in my life.", reverse: false },
-    { id: 26, text: "I have trouble filtering out sounds when I am not doing something I'm focused on.", reverse: false },
-    { id: 27, text: "I usually mean what I say and no more than that.", reverse: false },
-    { id: 28, text: "I often engage in lengthy discussions on topics I find interesting even though my conversational partner(s) do not.", reverse: false },
-    { id: 29, text: "I sometimes accidentally say something others find offensive/rude when I am focused on a task.", reverse: false },
-    { id: 30, text: "I can sometimes be very distressed by a topic that others think of as trivial.", reverse: false },
-    { id: 31, text: "I find it easy to keep up with group discussions where everyone is speaking.", reverse: true },
-    { id: 32, text: "Often when I am focused on activities, I do not notice I am thirsty or hungry.", reverse: false },
-    { id: 33, text: "Often when I am focused on activities, I do not notice I need the bathroom.", reverse: false },
-    { id: 34, text: "When there is a lot of information to consider, I often struggle to make a decision.", reverse: false },
-    { id: 35, text: "Sometimes making a decision is so hard I get physically stuck.", reverse: false },
-    { id: 36, text: "I sometimes focus on an incident for a substantial time (days) after the event.", reverse: false },
-    { id: 37, text: "I sometimes become highly anxious by focusing on the many possible situations that might occur at a future event.", reverse: false },
-    { id: 38, text: "Sometimes when I am focused on an activity, I do not recall all the information I might need to make good decisions.", reverse: false },
-    { id: 39, text: "People tell me I get fixated on things.", reverse: false },
-    { id: 40, text: "I find a problem I can't solve distressing and/or hard to put down.", reverse: false },
-    { id: 41, text: "I tend to feel quite self-conscious unless I'm deeply absorbed in a task.", reverse: false },
-    { id: 42, text: "I often get stuck thinking about all the possibilities that might come out of a decision.", reverse: false },
-    { id: 43, text: "When I am interested in something, I tend to be passionate about it.", reverse: false },
-    { id: 44, text: "When I am interested in a topic, I like to learn everything I can about that topic.", reverse: false },
-    { id: 45, text: "I am still fascinated by many of the things I was interested in when I was much younger.", reverse: false },
-    { id: 46, text: "I rarely find myself getting stuck in loops of thought.", reverse: true },
-    { id: 47, text: "I often loop back to previous thoughts.", reverse: false }
-  ];
 
-  // Group questions into logical sections for better UX
-  const questionSections = [
-    {
-      title: "Environment & Focus",
-      description: "Questions about your attention and environmental needs",
-      items: [1, 2, 3, 4, 5, 16, 18, 26]
-    },
-    {
-      title: "Interests & Passion",
-      description: "Questions about your interests and engagement patterns", 
-      items: [8, 10, 12, 14, 19, 25, 28, 39, 40, 43, 44, 45]
-    },
-    {
-      title: "Social Interactions",
-      description: "Questions about social communication and situations",
-      items: [6, 9, 13, 15, 27, 29, 30, 31]
-    },
-    {
-      title: "Routines & Uncertainty",
-      description: "Questions about structure, routines, and managing uncertainty",
-      items: [20, 21, 22]
-    },
-    {
-      title: "Decision Making & Processing",
-      description: "Questions about thinking patterns and decision-making",
-      items: [34, 35, 36, 37, 38, 42, 46, 47]
-    },
-    {
-      title: "Awareness & Focus States",
-      description: "Questions about awareness during focused activities",
-      items: [32, 33, 41]
-    },
-    {
-      title: "Skills & Abilities", 
-      description: "Questions about your capabilities and traits",
-      items: [7, 11, 17, 23, 24]
+  const handleResponse = (itemId: number, value: ResponseValue) => {
+    setResponses(prev => ({
+      ...prev,
+      [itemId]: value
+    }));
+    
+    if (currentQuestionIndex < mqItems.length - 1) {
+      setTimeout(() => {
+        setCurrentQuestionIndex(prev => prev + 1);
+      }, 300);
     }
-  ];
-
-  // Eight-factor structure (items that load on each factor)
-  const factorStructure = {
-    'Special interests': [44, 43, 25, 45, 28, 39, 40, 14],
-    'Rumination and anxiety': [37, 42, 22, 36, 47, 46],
-    'Need for routines': [20, 21],
-    'Environmental impact on attention tunnel': [4, 2, 3, 16, 5, 26, 1, 18],
-    'Losing track when focusing': [32, 33, 12, 10],
-    'Struggle with decision-making': [34, 35, 38, 23],
-    'Anxiety-reducing effect of interests': [8, 19, 9],
-    'Managing social interactions': [13, 15, 31, 27, 6, 30]
   };
 
-  const scaleLabels = [
-    "Strongly disagree",
-    "Disagree", 
-    "Neither agree nor disagree",
-    "Agree",
-    "Strongly agree"
-  ];
+  
+
+  const handleStartOver = () => {
+    setCurrentStep(0);
+    setResponses({});
+    setDemographics({ autistic: null, adhd: null, age: '', education: '' });
+    setCurrentQuestionIndex(0);
+  };
 
   const steps = [
     { title: "Introduction", icon: BookOpen },
@@ -129,581 +45,8 @@ const MonotropismQuestionnaire = () => {
     { title: "Results", icon: ChevronRight }
   ];
 
-  const getCurrentSection = () => {
-    let totalItems = 0;
-    for (let section of questionSections) {
-      if (currentQuestionIndex < totalItems + section.items.length) {
-        return {
-          section,
-          sectionIndex: questionSections.indexOf(section),
-          itemIndexInSection: currentQuestionIndex - totalItems
-        };
-      }
-      totalItems += section.items.length;
-    }
-    return null;
-  };
-
-  const getCompletionStats = () => {
-    const answered = Object.keys(responses).filter(k => responses[k] !== null).length;
-    const total = mqItems.length;
-    const percentage = Math.round((answered / total) * 100);
-    const minimumMet = answered >= 40;
-    
-    return { answered, total, percentage, minimumMet };
-  };
-
-  const navigateQuestion = (direction) => {
-    if (direction === 'next' && currentQuestionIndex < mqItems.length - 1) {
-      setCurrentQuestionIndex(prev => prev + 1);
-    } else if (direction === 'prev' && currentQuestionIndex > 0) {
-      setCurrentQuestionIndex(prev => prev - 1);
-    }
-  };
-
-  const goToQuestion = (index) => {
-    setCurrentQuestionIndex(index);
-  };
-
-  const handleResponse = (itemId, value) => {
-    setResponses(prev => ({
-      ...prev,
-      [itemId]: value
-    }));
-  };
-
-  const calculateScore = () => {
-    const validResponses = Object.entries(responses).filter(([_, value]) => value !== null && value !== 'na');
-    if (validResponses.length < 40) return null; // Minimum threshold from validation study
-    
-    let totalScore = 0;
-    validResponses.forEach(([itemId, value]) => {
-      const item = mqItems.find(i => i.id === parseInt(itemId));
-      if (item.reverse) {
-        // Reverse scoring: 1->5, 2->4, 3->3, 4->2, 5->1
-        totalScore += 6 - value;
-      } else {
-        totalScore += value;
-      }
-    });
-    
-    return totalScore / validResponses.length; // Average score (1-5 scale)
-  };
-
-  const calculateFactorScores = () => {
-    const factorScores = {};
-    
-    Object.entries(factorStructure).forEach(([factorName, itemIds]) => {
-      const factorResponses = itemIds
-        .map(id => {
-          const response = responses[id];
-          if (response === null || response === 'na') return null;
-          
-          const item = mqItems.find(i => i.id === id);
-          return item.reverse ? 6 - response : response;
-        })
-        .filter(score => score !== null);
-      
-      if (factorResponses.length > 0) {
-        factorScores[factorName] = factorResponses.reduce((a, b) => a + b, 0) / factorResponses.length;
-      }
-    });
-    
-    return factorScores;
-  };
-
-  const getPredictedScore = () => {
-    // Multiple linear regression model from validation study
-    const intercept = 3.03;
-    const autismBeta = 1.04;
-    const adhdBeta = 0.56;
-    const interactionBeta = -0.43;
-    
-    const isAutistic = demographics.autistic === 'yes';
-    const hasAdhd = demographics.adhd === 'yes';
-    
-    return intercept + 
-           (isAutistic ? autismBeta : 0) + 
-           (hasAdhd ? adhdBeta : 0) + 
-           (isAutistic && hasAdhd ? interactionBeta : 0);
-  };
-
-  const getScoreInterpretation = (score) => {
-    if (score >= 4.0) return { level: "Very High", color: "text-purple-600", description: "Score indicates very high monotropic traits" };
-    if (score >= 3.4) return { level: "High", color: "text-blue-600", description: "Score indicates high monotropic traits" };
-    if (score >= 2.8) return { level: "Moderate", color: "text-green-600", description: "Score indicates moderate monotropic traits" };
-    return { level: "Lower", color: "text-gray-600", description: "Score indicates lower monotropic traits" };
-  };
-
-  const renderIntroduction = () => (
-    <div className="max-w-4xl mx-auto p-6 space-y-6">
-      <div className="text-center space-y-4">
-        <h1 className="text-3xl font-bold text-gray-900">Monotropism Questionnaire (MQ)</h1>
-        <p className="text-lg text-gray-600">Research-validated instrument for measuring monotropic cognitive style</p>
-      </div>
-      
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 space-y-4">
-        <h2 className="text-xl font-semibold text-blue-900 flex items-center gap-2">
-          <Info className="w-5 h-5" />
-          About Monotropism Theory
-        </h2>
-        <div className="text-blue-800 space-y-3">
-          <p>
-            Monotropism is a theory of autism developed by autistic scholars that describes how the mind functions as an "interest-system" where attention is allocated across different interests.
-          </p>
-          <ul className="list-disc list-inside space-y-2 ml-4">
-            <li><strong>Monotropic minds</strong> tend to have fewer interests highly aroused at any time, with deep focused attention ("attention tunnels")</li>
-            <li><strong>Polytropic minds</strong> distribute attention across more interests simultaneously at varying levels</li>
-            <li>This framework explains many autism features non-pathologically: special interests, hyperfocus, difficulty with task-switching</li>
-            <li>Recent research shows monotropism is also relevant to ADHD, particularly in explaining hyperfocus experiences</li>
-          </ul>
-        </div>
-      </div>
-
-      <div className="bg-amber-50 border border-amber-200 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-amber-900 flex items-center gap-2 mb-3">
-          <AlertCircle className="w-5 h-5" />
-          Important Considerations
-        </h3>
-        <div className="text-amber-800 space-y-2">
-          <p><strong>This is not a diagnostic tool.</strong> The MQ measures cognitive style, not autism or ADHD diagnosis.</p>
-          <p><strong>Research context:</strong> This instrument was developed through participatory research with autistic adults.</p>
-          <p><strong>Validation:</strong> Based on Garau et al. (2023) with 1,109 participants, showing strong psychometric properties.</p>
-        </div>
-      </div>
-
-      <div className="text-center">
-        <button 
-          onClick={() => setCurrentStep(1)}
-          className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 mx-auto"
-        >
-          Begin Assessment <ChevronRight className="w-4 h-4" />
-        </button>
-      </div>
-    </div>
-  );
-
-  const renderBackground = () => (
-    <div className="max-w-2xl mx-auto p-6 space-y-6">
-      <h2 className="text-2xl font-bold text-gray-900">Background Information</h2>
-      <p className="text-gray-600">This information helps contextualize your results according to the validation research.</p>
-      
-      <div className="space-y-6">
-        <div className="space-y-3">
-          <label className="block text-sm font-medium text-gray-700">
-            Do you identify as autistic? (This includes clinical diagnosis, self-identification, or suspecting you might be autistic)
-          </label>
-          <div className="space-y-2">
-            {['yes', 'no', 'unsure'].map(option => (
-              <label key={option} className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="autistic"
-                  value={option}
-                  checked={demographics.autistic === option}
-                  onChange={(e) => setDemographics(prev => ({ ...prev, autistic: e.target.value }))}
-                  className="w-4 h-4 text-blue-600"
-                />
-                <span className="capitalize">{option}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          <label className="block text-sm font-medium text-gray-700">
-            Do you have ADHD? (This includes clinical diagnosis, self-identification, or suspecting you might have ADHD)
-          </label>
-          <div className="space-y-2">
-            {['yes', 'no', 'unsure'].map(option => (
-              <label key={option} className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="adhd"
-                  value={option}
-                  checked={demographics.adhd === option}
-                  onChange={(e) => setDemographics(prev => ({ ...prev, adhd: e.target.value }))}
-                  className="w-4 h-4 text-blue-600"
-                />
-                <span className="capitalize">{option}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          <label className="block text-sm font-medium text-gray-700">Age (optional)</label>
-          <input
-            type="number"
-            value={demographics.age}
-            onChange={(e) => setDemographics(prev => ({ ...prev, age: e.target.value }))}
-            className="border border-gray-300 rounded-md px-3 py-2 w-24"
-            min="18"
-            max="120"
-          />
-        </div>
-      </div>
-
-      <div className="flex gap-4 justify-between">
-        <button 
-          onClick={() => setCurrentStep(0)}
-          className="border border-gray-300 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2"
-        >
-          <ChevronLeft className="w-4 h-4" /> Back
-        </button>
-        <button 
-          onClick={() => setCurrentStep(2)}
-          disabled={!demographics.autistic || !demographics.adhd}
-          className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
-        >
-          Continue <ChevronRight className="w-4 h-4" />
-        </button>
-      </div>
-    </div>
-  );
-
-  const renderQuestionnaire = () => {
-    const stats = getCompletionStats();
-    const currentSectionInfo = getCurrentSection();
-    const currentItem = mqItems[currentQuestionIndex];
-    
-    if (!currentSectionInfo) return null;
-    
-    const { section, sectionIndex, itemIndexInSection } = currentSectionInfo;
-
-    return (
-      <div className="max-w-4xl mx-auto p-6 space-y-6">
-        {/* Header with overall progress */}
-        <div className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-bold text-gray-900">Monotropism Questionnaire</h2>
-            <div className="text-right">
-              <div className="text-sm text-gray-500">
-                Question {currentQuestionIndex + 1} of {mqItems.length}
-              </div>
-              <div className="text-xs text-gray-400">
-                {stats.answered} answered • {stats.minimumMet ? '✓' : ''} {stats.minimumMet ? 'Minimum met' : `Need ${40 - stats.answered} more`}
-              </div>
-            </div>
-          </div>
-          
-          {/* Overall Progress Bar */}
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Overall Progress</span>
-              <span className="font-medium text-blue-600">{stats.percentage}%</span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div 
-                className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
-                style={{ width: `${stats.percentage}%` }}
-              ></div>
-            </div>
-          </div>
-
-          {/* Section Progress */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <div className="flex justify-between items-center mb-2">
-              <h3 className="font-medium text-blue-900">{section.title}</h3>
-              <span className="text-sm text-blue-700">
-                Section {sectionIndex + 1} of {questionSections.length}
-              </span>
-            </div>
-            <p className="text-sm text-blue-800 mb-3">{section.description}</p>
-            <div className="flex justify-between text-xs text-blue-700">
-              <span>Question {itemIndexInSection + 1} of {section.items.length} in this section</span>
-              <span>{section.items.filter(id => responses[id] !== null && responses[id] !== undefined).length}/{section.items.length} completed</span>
-            </div>
-            <div className="w-full bg-blue-200 rounded-full h-1 mt-2">
-              <div 
-                className="bg-blue-600 h-1 rounded-full transition-all duration-300" 
-                style={{ width: `${((itemIndexInSection + 1) / section.items.length) * 100}%` }}
-              ></div>
-            </div>
-          </div>
-        </div>
-
-        {/* Current Question */}
-        <div className="bg-white border border-gray-200 rounded-lg p-8 shadow-sm">
-          <div className="space-y-6">
-            <div className="flex gap-4">
-              <div className="flex-shrink-0 w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-lg font-bold text-blue-600">
-                {currentItem.id}
-              </div>
-              <div className="flex-1">
-                <p className="text-lg text-gray-900 leading-relaxed mb-4">
-                  {currentItem.text}
-                </p>
-                {currentItem.reverse && (
-                  <div className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-2 py-1 inline-block mb-4">
-                    This item is reverse-scored in the analysis
-                  </div>
-                )}
-                
-                {/* Response Options */}
-                <div className="space-y-4">
-                  <div className="grid grid-cols-5 gap-2 text-xs text-center font-medium text-gray-600 mb-2">
-                    <div>Strongly<br/>Disagree</div>
-                    <div>Disagree</div>
-                    <div>Neither</div>
-                    <div>Agree</div>
-                    <div>Strongly<br/>Agree</div>
-                  </div>
-                  
-                  <div className="grid grid-cols-5 gap-3 mb-4">
-                    {[1, 2, 3, 4, 5].map(value => (
-                      <label 
-                        key={value} 
-                        className={`flex flex-col items-center gap-2 cursor-pointer p-3 rounded-lg border-2 transition-all ${
-                          responses[currentItem.id] === value 
-                            ? 'border-blue-500 bg-blue-50' 
-                            : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name={`item-${currentItem.id}`}
-                          value={value}
-                          checked={responses[currentItem.id] === value}
-                          onChange={() => handleResponse(currentItem.id, value)}
-                          className="w-5 h-5 text-blue-600"
-                        />
-                        <span className="text-lg font-bold text-blue-600">{value}</span>
-                      </label>
-                    ))}
-                  </div>
-                  
-                  <div className="text-center">
-                    <label className={`inline-flex items-center gap-2 cursor-pointer p-3 rounded-lg border-2 transition-all ${
-                      responses[currentItem.id] === 'na' 
-                        ? 'border-gray-500 bg-gray-50' 
-                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                    }`}>
-                      <input
-                        type="radio"
-                        name={`item-${currentItem.id}`}
-                        value="na"
-                        checked={responses[currentItem.id] === 'na'}
-                        onChange={() => handleResponse(currentItem.id, 'na')}
-                        className="w-4 h-4 text-gray-600"
-                      />
-                      <span className="text-sm font-medium text-gray-700">Not applicable to me</span>
-                    </label>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Navigation */}
-        <div className="flex justify-between items-center">
-          <button 
-            onClick={() => currentQuestionIndex === 0 ? setCurrentStep(1) : navigateQuestion('prev')}
-            className="border border-gray-300 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2"
-          >
-            <ChevronLeft className="w-4 h-4" /> 
-            {currentQuestionIndex === 0 ? 'Back to Background' : 'Previous Question'}
-          </button>
-          
-          {/* Quick Navigation Dots */}
-          <div className="flex items-center gap-1">
-            {mqItems.slice(Math.max(0, currentQuestionIndex - 5), Math.min(mqItems.length, currentQuestionIndex + 6)).map((item, index) => {
-              const actualIndex = Math.max(0, currentQuestionIndex - 5) + index;
-              const isAnswered = responses[item.id] !== null && responses[item.id] !== undefined;
-              const isCurrent = actualIndex === currentQuestionIndex;
-              
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => goToQuestion(actualIndex)}
-                  className={`w-3 h-3 rounded-full transition-all ${
-                    isCurrent 
-                      ? 'bg-blue-600 ring-2 ring-blue-200' 
-                      : isAnswered 
-                        ? 'bg-green-400 hover:bg-green-500' 
-                        : 'bg-gray-300 hover:bg-gray-400'
-                  }`}
-                  title={`Question ${actualIndex + 1}${isAnswered ? ' (answered)' : ''}`}
-                />
-              );
-            })}
-          </div>
-
-          <div className="flex gap-2">
-            {currentQuestionIndex < mqItems.length - 1 ? (
-              <button 
-                onClick={() => navigateQuestion('next')}
-                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-              >
-                Next Question <ChevronRight className="w-4 h-4" />
-              </button>
-            ) : (
-              <button 
-                onClick={() => setCurrentStep(3)}
-                disabled={!stats.minimumMet}
-                className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
-              >
-                View Results <ChevronRight className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Section Overview */}
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-          <h4 className="font-medium text-gray-900 mb-2">Section Overview</h4>
-          <div className="grid grid-cols-7 gap-1">
-            {questionSections.map((sec, secIndex) => (
-              <div key={secIndex} className="space-y-1">
-                <div className="text-xs text-gray-600 font-medium truncate" title={sec.title}>
-                  {sec.title.split(' ')[0]}
-                </div>
-                <div className="grid gap-1">
-                  {sec.items.map(itemId => {
-                    const itemIndex = mqItems.findIndex(item => item.id === itemId);
-                    const isAnswered = responses[itemId] !== null && responses[itemId] !== undefined;
-                    const isCurrent = itemIndex === currentQuestionIndex;
-                    
-                    return (
-                      <button
-                        key={itemId}
-                        onClick={() => goToQuestion(itemIndex)}
-                        className={`w-4 h-4 rounded text-xs transition-all ${
-                          isCurrent 
-                            ? 'bg-blue-600 text-white ring-1 ring-blue-300' 
-                            : isAnswered 
-                              ? 'bg-green-400 text-white hover:bg-green-500' 
-                              : 'bg-gray-300 text-gray-600 hover:bg-gray-400'
-                        }`}
-                        title={`Question ${itemId}${isAnswered ? ' (answered)' : ''}`}
-                      >
-                        {itemId}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const renderResults = () => {
-    const totalScore = calculateScore();
-    const factorScores = calculateFactorScores();
-    const predictedScore = getPredictedScore();
-    const interpretation = getScoreInterpretation(totalScore);
-    
-    if (!totalScore) {
-      return (
-        <div className="max-w-2xl mx-auto p-6">
-          <div className="text-center text-red-600">
-            <h2 className="text-xl font-bold mb-2">Insufficient Data</h2>
-            <p>Please complete at least 40 items to receive results.</p>
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div className="max-w-6xl mx-auto p-6 space-y-8">
-        <h2 className="text-2xl font-bold text-gray-900 text-center">Your Monotropism Profile</h2>
-        
-        {/* Overall Score */}
-        <div className="bg-white border border-gray-200 rounded-lg p-6">
-          <h3 className="text-xl font-semibold mb-4">Overall Monotropism Score</h3>
-          <div className="flex items-center gap-6">
-            <div className="text-center">
-              <div className="text-4xl font-bold text-blue-600">{totalScore.toFixed(2)}</div>
-              <div className="text-sm text-gray-500">Average Score (1-5)</div>
-            </div>
-            <div className="flex-1">
-              <div className={`text-lg font-medium ${interpretation.color}`}>{interpretation.level} Monotropic Traits</div>
-              <div className="text-gray-600">{interpretation.description}</div>
-              {demographics.autistic === 'yes' || demographics.adhd === 'yes' ? (
-                <div className="mt-2 text-sm">
-                  <span className="text-gray-600">Predicted score based on your background: </span>
-                  <span className="font-medium">{predictedScore.toFixed(2)}</span>
-                </div>
-              ) : null}
-            </div>
-          </div>
-        </div>
-
-        {/* Factor Profile */}
-        <div className="bg-white border border-gray-200 rounded-lg p-6">
-          <h3 className="text-xl font-semibold mb-4">Eight-Factor Monotropism Profile</h3>
-          <p className="text-gray-600 mb-6">This shows how your monotropic style manifests across different dimensions:</p>
-          
-          <div className="grid gap-4">
-            {Object.entries(factorScores).map(([factor, score]) => (
-              <div key={factor} className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="font-medium text-gray-700">{factor}</span>
-                  <span className="text-blue-600 font-medium">{score.toFixed(2)}</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div 
-                    className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
-                    style={{ width: `${(score / 5) * 100}%` }}
-                  ></div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Interpretation Guide */}
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-6">
-          <h3 className="text-lg font-semibold text-amber-900 mb-3">Understanding Your Results</h3>
-          <div className="text-amber-800 space-y-2 text-sm">
-            <p><strong>Important:</strong> These results reflect your cognitive style, not a diagnosis.</p>
-            <p><strong>Score Range:</strong> 1-5 scale where higher scores indicate more monotropic traits.</p>
-            <p><strong>Research Context:</strong> Autistic adults in the validation study averaged 4.15; non-autistic adults averaged 3.19.</p>
-            <p><strong>Individual Variation:</strong> People express monotropism differently across the eight factors.</p>
-          </div>
-        </div>
-
-        {/* Diagnostic Context */}
-        {(demographics.autistic === 'yes' || demographics.adhd === 'yes') && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-blue-900 mb-3">Diagnostic Context</h3>
-            <div className="text-blue-800 space-y-2 text-sm">
-              {demographics.autistic === 'yes' && demographics.adhd === 'yes' && (
-                <p><strong>Autism + ADHD:</strong> Research shows a complex, non-additive relationship where having both conditions doesn't simply add their individual effects on monotropism.</p>
-              )}
-              {demographics.autistic === 'yes' && demographics.adhd !== 'yes' && (
-                <p><strong>Autism:</strong> Monotropism theory was originally developed to explain autistic cognitive style, particularly the tendency toward deep, focused interests.</p>
-              )}
-              {demographics.adhd === 'yes' && demographics.autistic !== 'yes' && (
-                <p><strong>ADHD:</strong> Research shows monotropic traits are also relevant to ADHD, particularly in explaining hyperfocus experiences.</p>
-              )}
-            </div>
-          </div>
-        )}
-
-        <div className="text-center">
-          <button 
-            onClick={() => {
-              setCurrentStep(0);
-              setResponses({});
-              setDemographics({ autistic: null, adhd: null, age: '', education: '' });
-            }}
-            className="border border-gray-300 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            Start Over
-          </button>
-        </div>
-      </div>
-    );
-  };
-
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Progress Bar */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-4xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
@@ -728,12 +71,35 @@ const MonotropismQuestionnaire = () => {
         </div>
       </div>
 
-      {/* Main Content */}
       <div className="py-8">
-        {currentStep === 0 && renderIntroduction()}
-        {currentStep === 1 && renderBackground()}
-        {currentStep === 2 && renderQuestionnaire()}
-        {currentStep === 3 && renderResults()}
+        {currentStep === 0 && <Introduction onBegin={() => setCurrentStep(1)} />}
+        {currentStep === 1 && (
+          <Background
+            demographics={demographics}
+            setDemographics={setDemographics}
+            onBack={() => setCurrentStep(0)}
+            onContinue={() => setCurrentStep(2)}
+          />
+        )}
+        {currentStep === 2 && (
+          <Questionnaire
+            responses={responses}
+            handleResponse={handleResponse}
+            mqItems={mqItems}
+            questionSections={questionSections}
+            currentQuestionIndex={currentQuestionIndex}
+            setCurrentQuestionIndex={setCurrentQuestionIndex}
+            setCurrentStep={setCurrentStep}
+          />
+        )}
+        {currentStep === 3 && (
+          <Results
+            totalScore={calculateScore(responses, mqItems)}
+            factorScores={calculateFactorScores(responses, mqItems, factorStructure)}
+            demographics={demographics}
+            onStartOver={handleStartOver}
+          />
+        )}
       </div>
     </div>
   );
